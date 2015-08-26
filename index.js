@@ -20,14 +20,20 @@ var beforeProcessor = {
 
         var cacheFile = cacheContext.getFileByPath(file.path);
 
-        if (cacheFile.md5sum() === file.md5sum()) {
+        if (cacheFile && cacheFile.get('md5sum') === file.md5sum()) {
             processContext.removeFile(file.path);
         }
         else {
             cacheContext.removeFile(file.path);
-            cacheContext._removedFiles.push(file.path);
+            cacheContext._removedFiles.push(file);
         }
 
+        cacheContext._sourceFiles.push({
+            path: file.path,
+            md5sum: file.md5sum()
+        });
+
+        done();
     }
 };
 
@@ -44,11 +50,12 @@ var afterProcessor = {
                 path: file.path,
                 fullPath: edp.path.resolve(baseDir, file.path),
                 extname: file.extname,
-                data: file.data
+                data: file.data,
+                fileEncoding: file.fileEncoding
             })
         );
 
-        cacheContext._addedFiles.push(file.path);
+        cacheContext._addedFiles.push(file);
 
         done();
 
@@ -68,7 +75,8 @@ var afterProcessor = {
                         path: file.path,
                         fullPath: edp.path.resolve(baseDir, file.path),
                         extname: file.extname,
-                        data: file.data
+                        data: file.data,
+                        fileEncoding: file.fileEncoding
                     })
                 );
 
@@ -136,8 +144,12 @@ var memoizeProcessor = {
 
         var me = this;
 
+        this.beforeAll(processContext);
+
         var baseDir = processContext.baseDir;
-        var cacheDir = edp.path.resolve(baseDir, me.cachePath, me.name);
+        var memDir = edp.path.resolve(baseDir, me.cachePath, 'memoize');
+        var cacheDir = edp.path.resolve(memDir, me.name);
+        var cacheJSON = edp.path.resolve(memDir, me.name + '.json');
 
         mkdirp.sync(cacheDir);
 
@@ -146,14 +158,26 @@ var memoizeProcessor = {
 
         var cacheContext = new ProcessContext({
             baseDir: cacheDir,
-            output: cacheDir,
+            outputDir: cacheDir,
             fileEncodings: processContext.fileEncodings
         });
 
+        cacheContext._sourceFiles = [];
         cacheContext._removedFiles = [];
         cacheContext._addedFiles = [];
 
-        me.cache = traverseDir(cacheDir, cacheContext);
+        traverseDir(cacheDir, cacheContext);
+
+        if (fs.existsSync(cacheJSON)) {
+
+            var cacheMap = edp.util.readJSONFile(cacheJSON);
+
+            cacheContext.getFiles().forEach(function (file) {
+                if (cacheMap[file.path]) {
+                    file.set('md5sum', cacheMap[file.path]);
+                }
+            });
+        }
 
         // processors
         var processors = me.processors;
@@ -165,7 +189,7 @@ var memoizeProcessor = {
                 beforeProcessor,
                 {
                     name: 'Before: ' + me.name,
-                    cache: me.cache
+                    cache: cacheContext
                 }
             )
         );
@@ -176,7 +200,7 @@ var memoizeProcessor = {
                 afterProcessor,
                 {
                     name: 'After: ' + me.name,
-                    cache: me.cache
+                    cache: cacheContext
                 }
             )
         );
@@ -188,14 +212,16 @@ var memoizeProcessor = {
 
             cacheContext._removedFiles.forEach(function (file) {
 
-                var outputFile = edp.path.resolve(outputDir, file.outputPath);
-                if (fs.existsSync(outputFile)) {
-                    fs.unlinkSync(outputFile);
+                if (file.outputPath) {
+                    var outputFile = edp.path.resolve(outputDir, file.outputPath);
+                    if (fs.existsSync(outputFile)) {
+                        fs.unlinkSync(outputFile);
+                    }
                 }
 
             });
 
-            
+
             cacheContext._addedFiles.forEach(function (file) {
 
                 if (file.outputPath) {
@@ -211,6 +237,14 @@ var memoizeProcessor = {
                 }
 
             });
+
+            var cacheMap = {};
+
+            cacheContext._sourceFiles.forEach(function (file) {
+                cacheMap[file.path] = file.md5sum;
+            });
+
+            fs.writeFileSync(cacheJSON, JSON.stringify(cacheMap, null, 4), 'UTF-8');
 
             done();
         }
@@ -260,7 +294,7 @@ function MemoizeProcessor(processors, opt) {
         memoizeProcessor,
         {
             processors: processors,
-            cachePath: '.edp-memoize'
+            cachePath: '.edpproj'
         },
         opt
     );
