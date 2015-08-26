@@ -13,7 +13,7 @@ exports.getProcessors = function () {
     
     var jsProcessor = new JsCompressor();
     jsProcessor = new MemoizeProcessor(jsProcessor, {
-        name: 'jscompress',
+        name: 'memoizejs',
         files: ['*.js']
     });
 

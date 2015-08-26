@@ -8,7 +8,8 @@
     "url": "https://github.com/junmer/edp-build-memoize.git"
   },
   "files": [
-    "index.js"
+    "index.js",
+    "lib"
   ],
   "keywords": [
     "edp",
@@ -16,7 +17,7 @@
     "memoize"
   ],
   "author": "junmer",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/junmer/edp-build-memoize/issues"
   },
