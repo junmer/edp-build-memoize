@@ -6,6 +6,7 @@
 /* eslint-env node */
 
 var fs = require('fs');
+var mkdirp = require('mkdirp');
 var edp = require('edp-core');
 var extend = edp.util.extend;
 
@@ -71,7 +72,7 @@ var afterProcessor = {
                     })
                 );
 
-         });
+            });
 
     }
 };
@@ -94,6 +95,7 @@ function traverseDir(dir, processContext) {
 
     var files = fs.readdirSync(dir);
 
+
     files.forEach(function (file) {
         if (file === '.svn' || file === '.git') {
             return;
@@ -101,6 +103,7 @@ function traverseDir(dir, processContext) {
 
         file = edp.path.resolve(dir, file);
         var stat = fs.statSync(file);
+        var relativePath = edp.path.relative(processContext.baseDir, file);
 
         if (stat.isDirectory()) {
             traverseDir(file, processContext);
@@ -109,7 +112,7 @@ function traverseDir(dir, processContext) {
             var fileEncodings = processContext.fileEncodings;
             var fileEncoding = null;
             for (var encodingPath in fileEncodings) {
-                if (helper.satisfy(relativePath, encodingPath)) {
+                if (edp.path.satisfy(relativePath, encodingPath)) {
                     fileEncoding = fileEncodings[encodingPath];
                     break;
                 }
@@ -136,6 +139,8 @@ var memoizeProcessor = {
         var baseDir = processContext.baseDir;
         var cacheDir = edp.path.resolve(baseDir, me.cachePath, me.name);
 
+        mkdirp.sync(cacheDir);
+
         // cacheContext
         var ProcessContext = processContext.constructor;
 
@@ -152,7 +157,7 @@ var memoizeProcessor = {
 
         // processors
         var processors = me.processors;
-        processors = Array.isArray(processors) ? processors: [processors];
+        processors = Array.isArray(processors) ? processors : [processors];
 
         // before
         processors.unshift(
@@ -177,27 +182,28 @@ var memoizeProcessor = {
         );
 
         // save cache
-        function cacheFiles () {
+        function cacheFiles() {
 
             var outputDir = cacheContext.outputDir;
 
-            cacheContext._removedFiles.forEach(function (outputPath) {
+            cacheContext._removedFiles.forEach(function (file) {
 
-                var outputFile = edp.path.resolve(outputDir, outputPath);
+                var outputFile = edp.path.resolve(outputDir, file.outputPath);
                 if (fs.existsSync(outputFile)) {
                     fs.unlinkSync(outputFile);
                 }
 
             });
 
-            var mkdirp = require('mkdirp');
-            cacheContext._addedFiles.forEach(function (outputPath) {
+            
+            cacheContext._addedFiles.forEach(function (file) {
 
                 if (file.outputPath) {
                     var fileBuffer = file.getDataBuffer();
 
                     file.outputPaths.push(file.outputPath);
                     file.outputPaths.forEach(function (outputPath) {
+
                         var outputFile = edp.path.resolve(outputDir, outputPath);
                         mkdirp.sync(edp.path.dirname(outputFile));
                         fs.writeFileSync(outputFile, fileBuffer);
@@ -210,23 +216,24 @@ var memoizeProcessor = {
         }
 
         // process
+        var ProcessorBase = me.constructor;
         var processorIndex = 0;
         var processorCount = processors.length;
 
         function nextProcess() {
-            if ( processorIndex >= processorCount ) {
+            if (processorIndex >= processorCount) {
                 cacheFiles();
                 return;
             }
 
-            var processor = processors[ processorIndex++ ];
-            if ( !(processor instanceof ProcessorBase) ) {
-                processor = new ProcessorBase( processor );
+            var processor = processors[processorIndex++];
+            if (!(processor instanceof ProcessorBase)) {
+                processor = new ProcessorBase(processor);
             }
 
-            edp.log.info( 'Running ' + processor.name );
-            if ( processor.start ) {
-                processor.start( processContext, nextProcess );
+            edp.log.info('Running ' + processor.name);
+            if (processor.start) {
+                processor.start(processContext, nextProcess);
             }
             else {
                 nextProcess();
@@ -236,7 +243,7 @@ var memoizeProcessor = {
         nextProcess();
 
     }
-},
+};
 
 /**
  * MemoizeProcessor 构造函数
@@ -246,9 +253,11 @@ var memoizeProcessor = {
  * @param {Array} opt.name 处理器名称
  * @return {Object} MemoizeProcessor instance
  */
+
 function MemoizeProcessor(processors, opt) {
 
     return extend(
+        memoizeProcessor,
         {
             processors: processors,
             cachePath: '.edp-memoize'
