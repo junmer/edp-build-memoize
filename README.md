@@ -6,16 +6,18 @@
 
 `edp-build-config.js`:
 
-```
+```js
 var MemoizeProcessor = require('edp-build-memoize');
 
 exports.getProcessors = function () {
     
     var jsProcessor = new JsCompressor();
+    jsProcessor = new MemoizeProcessor(jsProcessor, {
+        name: 'jscompress',
+        files: ['*.js']
+    });
 
-    var memoize = new MemoizeProcessor('jsmin');
-
-    return [ memoize(jsProcessor) ];
+    return [jsProcessor];
 
 });
 ```
