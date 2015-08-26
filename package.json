@@ -1,0 +1,29 @@
+{
+  "name": "edp-build-memoize",
+  "version": "0.0.1",
+  "description": "edp-build memoize",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/junmer/edp-build-memoize.git"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "edp",
+    "build",
+    "memoize"
+  ],
+  "author": "junmer",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/junmer/edp-build-memoize/issues"
+  },
+  "homepage": "https://github.com/junmer/edp-build-memoize",
+  "dependencies": {
+    "edp-core": "^1.0.32",
+    "iconv-lite": "^0.4.11",
+    "mkdirp": "^0.5.1"
+  }
+}
